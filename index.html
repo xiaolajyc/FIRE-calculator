@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIRE Calculator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #4CAF50;
+        }
+        form {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 400px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+        }
+        input {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        canvas {
+            max-width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h1>FIRE Calculator</h1>
+    <form id="fireForm">
+        <label for="initialCapital">初始资金 (元):</label>
+        <input type="number" id="initialCapital" name="initialCapital" required><br><br>
+        
+        <label for="annualReturn">投资平均年化收益率 (%):</label>
+        <input type="number" id="annualReturn" name="annualReturn" required><br><br>
+        
+        <label for="annualIncome">每年净收入 (元):</label>
+        <input type="number" id="annualIncome" name="annualIncome" required><br><br>
+        
+        <label for="annualExpenses">每年支出 (元):</label>
+        <input type="number" id="annualExpenses" name="annualExpenses" required><br><br>
+        
+        <label for="inflationRate">平均通胀率 (%):</label>
+        <input type="number" id="inflationRate" name="inflationRate" required><br><br>
+        
+        <label for="yearsToWorkAfterFire">财富自由后继续工作年限:</label>
+        <input type="number" id="yearsToWorkAfterFire" name="yearsToWorkAfterFire" required><br><br>
+        
+        <button type="button" onclick="calculateFire()">计算</button>
+    </form>
+    
+    <h2>结果</h2>
+    <p id="result"></p>
+    <canvas id="myChart" width="400" height="200"></canvas>
+    
+    <script>
+        let chart;
+
+        function calculateFire() {
+            const initialCapital = parseFloat(document.getElementById('initialCapital').value);
+            const annualReturn = parseFloat(document.getElementById('annualReturn').value) / 100;
+            const annualIncome = parseFloat(document.getElementById('annualIncome').value);
+            let annualExpenses = parseFloat(document.getElementById('annualExpenses').value);
+            const inflationRate = parseFloat(document.getElementById('inflationRate').value) / 100;
+            const yearsToWorkAfterFire = parseFloat(document.getElementById('yearsToWorkAfterFire').value);
+
+            let years = 0;
+            let capital = initialCapital;
+            const capitalHistory = [initialCapital];
+            let fireYear = null;
+            let passiveIncomeAtFire = null;
+
+            while (true) {
+                capital += annualIncome + (capital * annualReturn) - annualExpenses;
+                capitalHistory.push(capital);
+                annualExpenses *= (1 + inflationRate); // Adjust expenses for inflation
+                if (fireYear === null && (capital * (annualReturn - 0.02)) >= annualExpenses) {
+                    fireYear = years;
+                    passiveIncomeAtFire = capital * (annualReturn - 0.02);
+                    // 达到财务独立后继续计算50年或直到资产变为负数
+                    for (let i = 0; i < 50; i++) {
+                        years++;
+                        if (i < yearsToWorkAfterFire) {
+                            capital += annualIncome + (capital * annualReturn) - annualExpenses;
+                        } else {
+                            capital += (capital * annualReturn) - annualExpenses;
+                        }
+                        annualExpenses *= (1 + inflationRate); // Adjust expenses for inflation
+                        if (capital <= 0) {
+                            capitalHistory.push(0);
+                            break;
+                        }
+                        capitalHistory.push(capital);
+                    }
+                    break;
+                }
+                years++;
+                if (capital <= 0) {
+                    capitalHistory.push(0);
+                    break;
+                }
+            }
+
+            if (fireYear !== null) {
+                document.getElementById('result').innerText = `你可以在第 ${fireYear} 年后完全依靠被动收入跑赢通胀2个点。该年的被动收入为 ${passiveIncomeAtFire.toFixed(2)} 元。`;
+            } else {
+                document.getElementById('result').innerText = `100年后仍无法完全依靠被动收入跑赢通胀2个点。`;
+            }
+
+            if (chart) {
+                chart.destroy();
+            }
+
+            const ctx = document.getElementById('myChart').getContext('2d');
+            const labels = Array.from({ length: capitalHistory.length }, (_, i) => i);
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '资产总量',
+                        data: capitalHistory,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 2,
+                        fill: false,
+                        pointRadius: 0,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false,
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false,
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '年份',
+                            },
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '资产总量 (元)',
+                            },
+                        },
+                    },
+                },
+            });
+        }
+    </script>
+</body>
+</html>
