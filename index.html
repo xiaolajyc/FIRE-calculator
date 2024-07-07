@@ -58,6 +58,9 @@
         canvas {
             max-width: 100%;
         }
+        .extra-expense-container {
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
@@ -80,6 +83,17 @@
         
         <label for="yearsToWorkAfterFire">财富自由后继续工作年限:</label>
         <input type="number" id="yearsToWorkAfterFire" name="yearsToWorkAfterFire" required><br><br>
+
+        <div class="extra-expense-container" id="extraExpenseContainer">
+            <h3>额外花费</h3>
+            <div class="extra-expense">
+                <label for="extraYear">第几年份:</label>
+                <input type="number" class="extraYear" required>
+                <label for="extraAmount">额外花费 (元):</label>
+                <input type="number" class="extraAmount" required>
+            </div>
+        </div>
+        <button type="button" onclick="addExtraExpense()">添加额外花费</button><br><br>
         
         <button type="button" onclick="calculateFire()">计算</button>
     </form>
@@ -91,6 +105,19 @@
     <script>
         let chart;
 
+        function addExtraExpense() {
+            const container = document.getElementById('extraExpenseContainer');
+            const newExpenseDiv = document.createElement('div');
+            newExpenseDiv.classList.add('extra-expense');
+            newExpenseDiv.innerHTML = `
+                <label for="extraYear">第几年份:</label>
+                <input type="number" class="extraYear" required>
+                <label for="extraAmount">额外花费 (元):</label>
+                <input type="number" class="extraAmount" required>
+            `;
+            container.appendChild(newExpenseDiv);
+        }
+
         function calculateFire() {
             const initialCapital = parseFloat(document.getElementById('initialCapital').value);
             const annualReturn = parseFloat(document.getElementById('annualReturn').value) / 100;
@@ -98,6 +125,16 @@
             let annualExpenses = parseFloat(document.getElementById('annualExpenses').value);
             const inflationRate = parseFloat(document.getElementById('inflationRate').value) / 100;
             const yearsToWorkAfterFire = parseFloat(document.getElementById('yearsToWorkAfterFire').value);
+
+            const extraExpenses = document.querySelectorAll('.extra-expense');
+            let extraExpensesMap = new Map();
+            extraExpenses.forEach(expense => {
+                const year = parseInt(expense.querySelector('.extraYear').value);
+                const amount = parseFloat(expense.querySelector('.extraAmount').value);
+                if (!isNaN(year) && !isNaN(amount)) {
+                    extraExpensesMap.set(year, amount);
+                }
+            });
 
             let years = 0;
             let capital = initialCapital;
@@ -107,6 +144,9 @@
 
             while (true) {
                 capital += annualIncome + (capital * annualReturn) - annualExpenses;
+                if (extraExpensesMap.has(years)) {
+                    capital -= extraExpensesMap.get(years);
+                }
                 capitalHistory.push(capital);
                 annualExpenses *= (1 + inflationRate); // Adjust expenses for inflation
                 if (fireYear === null && (capital * (annualReturn - 0.02)) >= annualExpenses) {
@@ -119,6 +159,9 @@
                             capital += annualIncome + (capital * annualReturn) - annualExpenses;
                         } else {
                             capital += (capital * annualReturn) - annualExpenses;
+                        }
+                        if (extraExpensesMap.has(years)) {
+                            capital -= extraExpensesMap.get(years);
                         }
                         annualExpenses *= (1 + inflationRate); // Adjust expenses for inflation
                         if (capital <= 0) {
