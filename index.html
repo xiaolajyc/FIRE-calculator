@@ -84,6 +84,9 @@
         <label for="yearsToWorkAfterFire">财富自由后继续工作年限:</label>
         <input type="number" id="yearsToWorkAfterFire" name="yearsToWorkAfterFire" required><br><br>
 
+        <label for="chartYears">图表显示年限:</label>
+        <input type="number" id="chartYears" name="chartYears"><br><br>
+
         <div class="extra-expense-container" id="extraExpenseContainer">
             <h3>额外花费</h3>
             <div class="extra-expense">
@@ -125,6 +128,7 @@
             let annualExpenses = parseFloat(document.getElementById('annualExpenses').value);
             const inflationRate = parseFloat(document.getElementById('inflationRate').value) / 100;
             const yearsToWorkAfterFire = parseFloat(document.getElementById('yearsToWorkAfterFire').value);
+            const chartYears = parseFloat(document.getElementById('chartYears').value) || 200;
 
             const extraExpenses = document.querySelectorAll('.extra-expense');
             let extraExpensesMap = new Map();
@@ -139,22 +143,23 @@
             let years = 0;
             let capital = initialCapital;
             const capitalHistory = [initialCapital];
+            const passiveIncomeHistory = [];
+            const expensesHistory = [];
             let fireYear = null;
             let passiveIncomeAtFire = null;
 
-            while (true) {
-                capital += annualIncome + (capital * annualReturn) - annualExpenses;
-                if (extraExpensesMap.has(years)) {
-                    capital -= extraExpensesMap.get(years);
-                }
-                capitalHistory.push(capital);
+            while (years <= chartYears) {
+                const passiveIncome = capital * annualReturn; // Calculate passive income
+                passiveIncomeHistory.push(passiveIncome);
+                expensesHistory.push(annualExpenses);
                 annualExpenses *= (1 + inflationRate); // Adjust expenses for inflation
-                if (fireYear === null && (capital * (annualReturn - 0.02)) >= annualExpenses) {
+                if (fireYear === null && passiveIncome >= annualExpenses) {
                     fireYear = years;
-                    passiveIncomeAtFire = capital * (annualReturn - 0.02);
-                    // 达到财务独立后继续计算50年或直到资产变为负数
-                    for (let i = 0; i < 50; i++) {
-                        years++;
+                    passiveIncomeAtFire = passiveIncome;
+                    // 达到财务独立后继续计算200年或直到资产变为负数
+                    for (let i = 0; i < 200; i++) {
+			 years++;
+                        if (years > chartYears) break;
                         if (i < yearsToWorkAfterFire) {
                             capital += annualIncome + (capital * annualReturn) - annualExpenses;
                         } else {
@@ -163,6 +168,8 @@
                         if (extraExpensesMap.has(years)) {
                             capital -= extraExpensesMap.get(years);
                         }
+			passiveIncomeHistory.push(capital * annualReturn); // Calculate passive income
+                        expensesHistory.push(annualExpenses);
                         annualExpenses *= (1 + inflationRate); // Adjust expenses for inflation
                         if (capital <= 0) {
                             capitalHistory.push(0);
@@ -172,6 +179,11 @@
                     }
                     break;
                 }
+                capital += annualIncome + passiveIncome - annualExpenses;
+                if (extraExpensesMap.has(years)) {
+                    capital -= extraExpensesMap.get(years);
+                }
+                capitalHistory.push(capital);
                 years++;
                 if (capital <= 0) {
                     capitalHistory.push(0);
@@ -180,9 +192,9 @@
             }
 
             if (fireYear !== null) {
-                document.getElementById('result').innerText = `你可以在第 ${fireYear} 年后完全依靠被动收入跑赢通胀2个点。该年的被动收入为 ${passiveIncomeAtFire.toFixed(2)} 元。`;
+                document.getElementById('result').innerText = `你可以在第 ${fireYear} 年后完全依靠被动收入跑赢通胀。该年的被动收入为 ${passiveIncomeAtFire.toFixed(2)} 元。`;
             } else {
-                document.getElementById('result').innerText = `100年后仍无法完全依靠被动收入跑赢通胀2个点。`;
+                document.getElementById('result').innerText = `在指定的年限内仍无法完全依靠被动收入跑赢通胀。`;
             }
 
             if (chart) {
@@ -190,15 +202,29 @@
             }
 
             const ctx = document.getElementById('myChart').getContext('2d');
-            const labels = Array.from({ length: capitalHistory.length }, (_, i) => i);
+            const labels = Array.from({ length: Math.min(chartYears + 1, capitalHistory.length) }, (_, i) => i);
             chart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
                     datasets: [{
                         label: '资产总量',
-                        data: capitalHistory,
+                        data: capitalHistory.slice(0, chartYears + 1),
                         borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 2,
+                        fill: false,
+                        pointRadius: 0,
+                    }, {
+                        label: '被动收入',
+                        data: passiveIncomeHistory.slice(0, chartYears + 1),
+                        borderColor: 'rgba(255, 159, 64, 1)',
+                        borderWidth: 2,
+                        fill: false,
+                        pointRadius: 0,
+                    }, {
+                        label: '支出',
+                        data: expensesHistory.slice(0, chartYears + 1),
+                        borderColor: 'rgba(255, 99, 132, 1)',
                         borderWidth: 2,
                         fill: false,
                         pointRadius: 0,
@@ -208,7 +234,7 @@
                     responsive: true,
                     plugins: {
                         legend: {
-                            display: false,
+                            display: true,
                         },
                         tooltip: {
                             mode: 'index',
@@ -231,7 +257,7 @@
                             beginAtZero: true,
                             title: {
                                 display: true,
-                                text: '资产总量 (元)',
+                                text: '金额 (元)',
                             },
                         },
                     },
